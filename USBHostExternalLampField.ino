@@ -1,5 +1,6 @@
 //-----------------------
 // Order the lamp field board at https://oshpark.com/shared_projects/CHp3OJUL
+// square leg of 6 pin header goes into Gravitech Shield Pin A5, header covers A0..A5
 //
 // Order a Gravitech USBHOST add-on for Arduino Nano http://www.gravitech.us/usadforarna.html
 // using solder, bridge all three pads, VIN, GPX, INT 
