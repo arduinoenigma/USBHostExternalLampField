@@ -152,11 +152,8 @@ void Analyze(char inKey)
     case GT:
 
       // Action
-      //QueueMorse(inKey);
-      //Print(inKey);
-      //LightKey(inKey);
-
-      //Print(inKey);
+      QueueMorse(inKey);
+      Print(inKey);
       LightKey(inKey);
 
       IsLampOn = 1;
@@ -193,5 +190,4 @@ void Analyze(char inKey)
     VerboseSM = NL;
   }
 }
-
 
