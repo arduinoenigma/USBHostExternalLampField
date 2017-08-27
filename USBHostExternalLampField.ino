@@ -3,7 +3,7 @@
 // square leg of 6 pin header goes into Gravitech Shield Pin A5, header covers A0..A5
 //
 // Order a Gravitech USBHOST add-on for Arduino Nano http://www.gravitech.us/usadforarna.html
-// using solder, bridge all three pads, VIN, GPX, INT 
+// using solder, bridge all three pads, VIN, GPX, INT
 //
 // Order an Arduino Nano http://www.gravitech.us/arna30wiatp.html
 //
@@ -21,9 +21,9 @@
 //-----------------------
 #define USBDevBaud 9600
 
-#define USBResetPin 3
-#define USBGPXPin 7
-#define USBIntPin 2
+//#define USBResetPin 3
+//#define USBGPXPin 7
+//#define USBIntPin 2
 
 #include <cdcacm.h>
 #include "USBInit.h"
@@ -37,6 +37,19 @@
 #define MorsePIN 10
 #define PINON 0
 #define PINOFF 1
+
+//----------------------
+
+#include "Adafruit_Thermal.h"
+
+#include "SoftwareSerial.h"
+#define TX_GND 4 // Ground reference  BLACK WIRE   labeled GND on printer
+#define TX_PIN 5 // Arduino transmit  YELLOW WIRE  labeled RX on printer
+#define RX_PIN 6 // Arduino receive   GREEN WIRE   labeled TX on printer
+
+SoftwareSerial mySerial(RX_PIN, TX_PIN); // Declare SoftwareSerial obj first
+Adafruit_Thermal printer(&mySerial);     // Pass addr to printer constructor
+// Then see setup() function regarding serial & printer begin() calls.
 
 //----------------------
 
@@ -56,17 +69,25 @@ void setup()
 {
   Serial.begin(9600);
 
-  pinMode(USBResetPin, OUTPUT);
-  pinMode(USBGPXPin, INPUT);
-  pinMode(USBIntPin, INPUT);
-
   pinMode(MorsePIN, OUTPUT);
   LightOff();
   AllOff();
 
-  digitalWrite(USBResetPin, 0);
-  delay(100);
-  digitalWrite(USBResetPin, 1);
+  //black into D4
+  //yellow into D5
+  //green into D6
+  pinMode(TX_GND, OUTPUT); digitalWrite(TX_GND, LOW);
+  mySerial.begin(19200);  // Initialize SoftwareSerial
+  printer.begin();        // Init printer (same regardless of serial type)
+  printer.setSize('L');        // Set type size, accepts 'S', 'M', 'L'
+
+  //  pinMode(USBResetPin, OUTPUT);
+  //  pinMode(USBGPXPin, INPUT);
+  //  pinMode(USBIntPin, INPUT);
+
+  //  digitalWrite(USBResetPin, 0);
+  //  delay(100);
+  //  digitalWrite(USBResetPin, 1);
 
   if (Usb.Init() == -1)
     Serial.println(F("USB Init Failed"));
@@ -79,7 +100,7 @@ void loop()
 {
   Usb.Task();
 
-  if ( Acm.isReady())
+  if (Acm.isReady())
   {
     uint8_t rcode;
 
@@ -108,5 +129,4 @@ void loop()
   MininumLightTime();
 
 }
-
 
