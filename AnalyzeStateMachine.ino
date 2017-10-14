@@ -20,11 +20,11 @@ enum verboseStateMachine {
   E,
   R,
   GT,
-  CL,
+  PG,
   PF,
+  SB,
   DONE
 };
-
 
 unsigned long ul_LampOn = 0;
 unsigned long ul_LampOff = 0;
@@ -48,16 +48,25 @@ void MininumLightTime()
   }
 }
 
+// list of valid commands that the Analyze function recognizes
+//er>er>X       // output X to the printer and light board until <CR><LF> is received, if <CR><LF> is received immediately, X is lit for a fixed amount of time
+//<CR><LF>      // turn X off (no effect on printer)
+//Printer:4     // sets printer groups, every N characters a space is printed, if 0, no spaces are printed, valid values are 0,4,5,6
+//PrinterFeed   // empties the print buffer and sends Line Feed to the thermal printer
+//Brighter=+    // increments PWM brightness value by 1
+//Brighter=-    // decrements PWM brightness value by 1
+//Brighter=}    // increments PWM brightness value by 10
+//Brighter={    // decrements PWM brightness value by 10
+//Brighter=?    // ? and any other character not listed above, sends the PWM brightness value to the slave device as three digits ie: 025
+
 byte SendOneTilde = 1;
+char LastKey = 0;
 
 void Analyze(char inKey)
 {
   static verboseStateMachine VerboseSM = NL;
   static byte SteckerCounter = 0;
   bool reset = false;
-
-  uint8_t data;
-  uint8_t rcode;
 
   if (inKey == 13)
   {
@@ -81,10 +90,16 @@ void Analyze(char inKey)
         }
         else
         {
-          LightOff();
-          AllOff();
+          //found you
+          //if letter change command is sent while save is blinking, it turns light off
+          if (autoSaveDone == 0)
+          {
+            LightOff();
+            AllOff();
+          }
         }
       }
+      autoSaveDone = 0;
 
       if (inKey == 'e')
       {
@@ -96,14 +111,10 @@ void Analyze(char inKey)
 
       if (SendOneTilde)
       {
+        SendOneTilde = 0;
         // send signal to enigma simulator to supress lampfield
         // ~ to disable lampfield and printer   @ to disable printer
-
-        SendOneTilde = 0;
-        //data = '@';   // @ disables printer only
-        data = '~';   // ! disables lampfield and printer
-
-        rcode = Acm.SndData(1, &data);
+        SendUSBChar('~');
       }
 
       if (inKey == 'r')
@@ -117,7 +128,8 @@ void Analyze(char inKey)
       break;
 
     case R:
-      // found "er", could be "Stecker>" or "Printer:" or "PrinterFeed"
+
+      // found "er", could be "Stecker>" or "Printer:" or "PrinterFeed" or "Brighter="
 
       // look for "Stecker>" string
       if (inKey == '>')
@@ -136,17 +148,28 @@ void Analyze(char inKey)
       // look for "Printer:" string
       else if (inKey == ':')
       {
-        VerboseSM = CL;
+        VerboseSM = PG;
       }
       // look for "PrinterFeed" string
       else if (inKey == 'F')
       {
         VerboseSM = PF;
       }
+      // look for "Brighter=" string
+      else if (inKey == '=')
+      {
+        VerboseSM = SB;
+      }
       else
       {
         reset = true;
       }
+
+      if (autoSaveTimer)
+      {
+        autoSaveTimer = AUTOSAVEDELAY;
+      }
+
       break;
 
     case GT:
@@ -162,7 +185,7 @@ void Analyze(char inKey)
       VerboseSM = DONE;
       break;
 
-    case CL:
+    case PG:
 
       SetPrinterGroups(inKey - '0');
 
@@ -170,10 +193,56 @@ void Analyze(char inKey)
       break;
 
     case PF:
+
       if (inKey == 'e')
       {
         PrinterFeed();
       }
+
+      VerboseSM = DONE;
+      break;
+
+    case SB:
+
+      if (inKey == '+')
+      {
+        if (LampFieldData.PWMDuty < 255)
+        {
+          LampFieldData.PWMDuty++;
+          autoSaveTimer = AUTOSAVEDELAY;
+        }
+      }
+
+      if (inKey == '-')
+      {
+        if (LampFieldData.PWMDuty > 1)
+        {
+          LampFieldData.PWMDuty--;
+          autoSaveTimer = AUTOSAVEDELAY;
+        }
+      }
+
+      if (inKey == '}')
+      {
+        if (LampFieldData.PWMDuty < 246)
+        {
+          LampFieldData.PWMDuty += 10;
+          autoSaveTimer = AUTOSAVEDELAY;
+        }
+      }
+
+      if (inKey == '{')
+      {
+        if (LampFieldData.PWMDuty > 10)
+        {
+          LampFieldData.PWMDuty -= 10;
+          autoSaveTimer = AUTOSAVEDELAY;
+        }
+      }
+
+      // unrecognized character, like ? will do nothing, but output the current brightness value
+      //Serial.println(LampFieldData.PWMDuty);
+      SendUSBShortInt(LampFieldData.PWMDuty);
 
       VerboseSM = DONE;
       break;
@@ -191,3 +260,36 @@ void Analyze(char inKey)
   }
 }
 
+void SendUSBShortInt(byte val)
+{
+  char buff[3];
+  uint8_t data;
+  uint8_t rcode;
+
+  for (byte i = 0; i < 3; i++)
+  {
+    buff [i] = 0;
+  }
+
+  for (byte i = 0; i < 3; i++)
+  {
+    buff [2 - i] = '0' + val - (val / 10) * 10;
+
+    val = val / 10;
+  }
+
+  for (byte i = 0; i < 3; i++)
+  {
+    data = buff[i];
+    rcode = Acm.SndData(1, &data);
+  }
+}
+
+void SendUSBChar(char c)
+{
+  uint8_t data;
+  uint8_t rcode;
+
+  data = c;
+  rcode = Acm.SndData(1, &data);
+}
