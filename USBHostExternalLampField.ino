@@ -9,6 +9,8 @@
 //
 // Download and install https://github.com/felis/USB_Host_Shield_2.0
 //
+// Download and install https://github.com/bhagman/SoftPWM
+//
 // Locate the following line in Libraries\Documents\Arduino\libraries\USB_Host_Shield_2.0-master\UsbCore.h
 //
 // typedef MAX3421e<P10, P9> MAX3421E;
@@ -30,16 +32,6 @@
 
 //----------------------
 
-#include <avr/pgmspace.h>
-#include <EEPROM.h>
-#include <avr/eeprom.h>
-
-#define MorsePIN 10
-#define PINON 0
-#define PINOFF 1
-
-//----------------------
-
 #include "Adafruit_Thermal.h"
 
 #include "SoftwareSerial.h"
@@ -50,6 +42,54 @@
 SoftwareSerial mySerial(RX_PIN, TX_PIN); // Declare SoftwareSerial obj first
 Adafruit_Thermal printer(&mySerial);     // Pass addr to printer constructor
 // Then see setup() function regarding serial & printer begin() calls.
+
+//----------------------
+
+#include <SoftPWM.h>
+#include <SoftPWM_timer.h>
+
+//----------------------
+
+#include <avr/pgmspace.h>
+#include <EEPROM.h>
+#include <avr/eeprom.h>
+
+//Get ENIGMADATASIZE with Serial.println(sizeof(lampfieldData_t));
+#define LAMPFIELDDATASIZE 5
+#define EEPROMADD 10
+#define EEPROMADD1 (EEPROMADD + LAMPFIELDDATASIZE)
+
+struct lampfieldData_t
+{
+  byte Init1;
+  unsigned char Ver1;
+  byte PWMDuty;
+  unsigned char Ver2;
+  byte Init2;
+}
+LampFieldData;
+
+//----------------------
+
+#define AUTOSAVEDELAY 4000
+unsigned long autoSaveTimer = 0;
+byte autoSaveDone = 0;
+
+enum blinkStateMachine {
+  BIDLE,
+  BOFF,
+  BON,
+};
+
+char LastK = 0;
+byte blinkKey = 0;
+unsigned long blinkTimer = 0;
+
+//----------------------
+
+#define MorsePIN 10
+#define PINON 0
+#define PINOFF 1
 
 //----------------------
 
@@ -67,7 +107,15 @@ void LightOff()
 
 void setup()
 {
+
   Serial.begin(9600);
+
+  ReadEEPROM();
+
+  //LampFieldData.PWMDuty = 200;
+  //WriteEEPROM();
+
+  SoftPWMBegin();
 
   pinMode(MorsePIN, OUTPUT);
   LightOff();
@@ -77,8 +125,8 @@ void setup()
   //yellow into D5
   //green into D6
   pinMode(TX_GND, OUTPUT); digitalWrite(TX_GND, LOW);
-  mySerial.begin(19200);  // Initialize SoftwareSerial
-  printer.begin();        // Init printer (same regardless of serial type)
+  mySerial.begin(19200);        // Initialize SoftwareSerial
+  printer.begin();              // Init printer (same regardless of serial type)
   printer.setSize('L');        // Set type size, accepts 'S', 'M', 'L'
 
   //  pinMode(USBResetPin, OUTPUT);
@@ -90,10 +138,21 @@ void setup()
   //  digitalWrite(USBResetPin, 1);
 
   if (Usb.Init() == -1)
+  {
     Serial.println(F("USB Init Failed"));
+    do {
+      delay(100);
+      LightKey('E');
+      delay(100);
+      AllOff();
+    } while (Usb.Init() == -1);
+  }
 
   delay(100);
 
+  //LampCheck();
+  //LampCheck();
+  //LampCheck();
 }
 
 void loop()
@@ -118,7 +177,7 @@ void loop()
       }
 
       //to send:
-      uint8_t data = '!';
+      //uint8_t data = '!';
       //rcode = Acm.SndData(1, &data);
     }
 
@@ -127,6 +186,7 @@ void loop()
   // if there is anything queued to send out, send it, call often
   SendMorse();
   MininumLightTime();
-
+  AutoSaveParameters();
+  BlinkKey();
 }
 
