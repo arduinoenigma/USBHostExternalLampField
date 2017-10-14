@@ -54,3 +54,4 @@ void Print(char c)
     PrinterFeed();
   }
 }
+
