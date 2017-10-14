@@ -7,8 +7,11 @@ class ACMAsyncOper : public CDCAsyncOper
 uint8_t ACMAsyncOper::OnInit(ACM *pacm)
 {
   uint8_t rcode;
-  // Set DTR = 1 RTS=1
-  rcode = pacm->SetControlLineState(3);
+
+  // originally set to 3 for DTR=1 RTS=1
+  //            set to 1 for DTR=0 RTS=1
+  // set DTR=0 RTS=1 to avoid resetting the simulator when plugged in
+  rcode = pacm->SetControlLineState(1); //set to 3 for DTR = 1 RTS=1 and (1) for DTR=0 RTS=1
 
   if (rcode)
   {
@@ -37,6 +40,4 @@ uint8_t ACMAsyncOper::OnInit(ACM *pacm)
 USB Usb;
 ACMAsyncOper  AsyncOper;
 ACM           Acm(&Usb, &AsyncOper);
-
-
 
