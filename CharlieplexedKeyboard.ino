@@ -52,6 +52,8 @@ const unsigned char LampFieldTable[] PROGMEM =
   B00110101   // 25 - Z 3->5
 };
 
+byte pinhigh = 0;
+
 byte GetRawPin(byte pin)
 {
   byte rawpin;
@@ -68,8 +70,27 @@ byte GetRawPin(byte pin)
 byte WritePin(byte pin, byte pvalue)
 {
   byte rawpin = GetRawPin(pin);
+  byte pwm = 0;
 
-  digitalWrite(rawpin, pvalue);
+  if (pvalue == LOW)
+  {
+    pwm = 0;
+  }
+
+  if (pvalue == HIGH)
+  {
+    pwm = LampFieldData.PWMDuty;
+
+    if (pwm == 0) {
+      pwm = 1;
+    }
+  }
+
+  //if fade time is not 0, another pin will light up in the transition
+  SoftPWMSetFadeTime(rawpin, 0, 0);
+  SoftPWMSet(rawpin, pwm);
+
+  //digitalWrite(rawpin, pvalue);
 
   return rawpin;
 }
@@ -78,23 +99,43 @@ byte SetPin(byte pin, byte mode)
 {
   byte rawpin = GetRawPin(pin);
 
+  SoftPWMSet(rawpin, 0);
   pinMode(rawpin, mode);
 
   return rawpin;
 }
 
-
 void AllOff()
 {
+  LastKey = 0;
+
+  if (pinhigh != 0)
+  {
+    WritePin(pinhigh, LOW);
+    pinhigh = 0;
+  }
+
   for (byte i = 0; i < 6; i++)
   {
     SetPin(i, INPUT);
   }
 }
 
-void LightKey(char c)
+void LampCheck()
+{
+  for (byte i = 0; i < 26; i++)
+  {
+    LightKey('A' + i);
+    delay(1000);
+  }
+  AllOff();
+}
+
+void LightKey(char Key)
 {
   const char *lampcodeptr;
+
+  char c = Key;
 
   byte raw;
   byte high;
@@ -104,6 +145,12 @@ void LightKey(char c)
 
   if (c < 26)
   {
+    AllOff();
+
+    //Serial.println(Key);
+
+    LastKey = Key;
+
     lampcodeptr = (const char PROGMEM *)LampFieldTable;
 
     raw = pgm_read_byte(lampcodeptr  + c);  // convert c to uppercase and subtract 65 (A)
@@ -111,12 +158,12 @@ void LightKey(char c)
     high = ((raw & B11110000) >> 4) - 1;
     low = ((raw & B00001111)) - 1;
 
-    AllOff();
+    pinhigh = high + 1;
+
+    SetPin(low, OUTPUT);
+    WritePin(low, LOW);
 
     SetPin(high, OUTPUT);
     WritePin(high, HIGH);
-    SetPin(low, OUTPUT);
-    WritePin(low, LOW);
   }
-
 }
