@@ -183,25 +183,27 @@ void loop() {
 
         if ((p.x > 0) && (p.x < 120) && (p.y > 0) && (p.y < 115))
         {
-          Serial.println(F("\n\rBrighter=+"));
+          //send abbreviated version of the command, simpler, faster
+          //less is more
+          Serial.println(F("\n\rer=+"));  // Brighter=+
           changed = true;
         }
 
         if ((p.x > 120) && (p.x < 240) && (p.y > 0) && (p.y < 115))
         {
-          Serial.println(F("\n\rBrighter=}"));
+          Serial.println(F("\n\rer=}")); // Brighter=}
           changed = true;
         }
 
         if ((p.x > 0) && (p.x < 120) && (p.y > 120) && (p.y < 240))
         {
-          Serial.println(F("\n\rBrighter=-"));
+          Serial.println(F("\n\rer=-")); // Brighter=-
           changed = true;
         }
 
         if ((p.x > 120) && (p.x < 240) && (p.y > 120) && (p.y < 240))
         {
-          Serial.println(F("\n\rBrighter={"));
+          Serial.println(F("\n\rer={")); // Brighter={
           changed = true;
         }
 
@@ -227,7 +229,7 @@ void loop() {
 
         if (changed)
         {
-          Serial.print(F("er>er>"));
+          Serial.print(F("er>er>")); // Stecker>Stecker>
           Serial.print(LightUpKey);
           updateBrightness();
           changed = false;
@@ -236,7 +238,7 @@ void loop() {
         if (changedkey)
         {
           Serial.println(F(""));
-          Serial.print(F("er>er>"));
+          Serial.print(F("er>er>")); // Stecker>Stecker>
           Serial.print(LightUpKey);
           updateLightUpKey();
           changedkey = false;
